@@ -25,8 +25,6 @@
  * the sequence become the time of the process.
  *
  * Some value are configurable at compile time by defining following value :
- * - UUIDV7_NODE_BS    : Set the bit size for node id, default to 16.
- * - UUIDV7_SEQ_BS     : Set the bit size for sequence, default to 12.
  * - UUIDV7_S_NAME     : Name to use to create the name shm and semaphore, al
  *                   processes using the same name will share time and
  *                   sequence, default to "uuidv7".
