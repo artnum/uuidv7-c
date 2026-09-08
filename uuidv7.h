@@ -177,14 +177,22 @@ uuidv7_t uuidv7_get   (uuidv7_ctx_t *ctx);
 
 #define UUIDV7_SEM_NAME        "/" UUIDV7_S_NAME "_sem"
 #define UUIDV7_SHM_NAME        "/" UUIDV7_S_NAME "_shm"
-#define UUIDV7_TIMESTAMP_BS    48
+#define UUIDV7_TIMESTAMP_BS    48 /* unix_ts_ms, RFC 9562 */
+#define UUIDV7_VERSION_BS       4 /* ver field width */
+#define UUIDV7_VERSION          7 /* UUIDv7 */
+#define UUIDV7_VARIANT_BS       2 /* var field width */
+#define UUIDV7_VARIANT          2 /* RFC 4122 variant 10x */
+#define UUIDV7_RANDOM_BS       32 /* rand_b leftover after node */
 #define UUIDV7_NS_BS           (UUIDV7_SEQ_BS + UUIDV7_NODE_BS)
 
 #define ONE_MS_USLEEP      1000
 
 #define UUIDV7_TIMESTAMP_MASK  (((uint64_t)1 << UUIDV7_TIMESTAMP_BS) - 1)
-#define UUIDV7_NODE_MASK       (((uint64_t)1 << UUIDV7_NODE_BS)      - 1)
+#define UUIDV7_VERSION_MASK    (((uint64_t)1 << UUIDV7_VERSION_BS)   - 1)
 #define UUIDV7_SEQ_MASK        (((uint64_t)1 << UUIDV7_SEQ_BS)       - 1)
+#define UUIDV7_VARIANT_MASK    (((uint64_t)1 << UUIDV7_VARIANT_BS)   - 1)
+#define UUIDV7_NODE_MASK       (((uint64_t)1 << UUIDV7_NODE_BS)      - 1)
+#define UUIDV7_RANDOM_MASK     (((uint64_t)1 << UUIDV7_RANDOM_BS)    - 1)
 
 static inline bool lock(sem_t *s) {
     uint16_t loop = 0;
@@ -379,16 +387,16 @@ restart:
    
     uuidv7_t id = {0, 0};
     id.uuid_high  =  (wall & UUIDV7_TIMESTAMP_MASK);
-    id.uuid_high <<= 4;
-    id.uuid_high |=  7;
+    id.uuid_high <<= UUIDV7_VERSION_BS;
+    id.uuid_high |=  (UUIDV7_VERSION & UUIDV7_VERSION_MASK);
     id.uuid_high <<= UUIDV7_SEQ_BS;
     id.uuid_high |=  (sequence   & UUIDV7_SEQ_MASK);
 
-    id.uuid_low  =   2;
+    id.uuid_low  =   (UUIDV7_VARIANT & UUIDV7_VARIANT_MASK);
     id.uuid_low  <<= UUIDV7_SEQ_BS;
     id.uuid_low  |=  (ctx->node  & UUIDV7_NODE_MASK);
-    id.uuid_low  <<= 32; /* random */
-    id.uuid_low  |=  atomic_fetch_add(&ctx->random, 1);
+    id.uuid_low  <<= UUIDV7_RANDOM_BS;
+    id.uuid_low  |=  (atomic_fetch_add(&ctx->random, 1) & UUIDV7_RANDOM_MASK);
 
     return id;
 fail:
