@@ -4,6 +4,9 @@ all: example test_ipc
 example: example.c
 	cc example.c -o example -lrt
 
+example2: example2.c
+	cc example2.c -o example2 -lrt
+
 test_ipc: test.c
 	cc test.c -o test_ipc -lrt -pthread
 

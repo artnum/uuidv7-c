@@ -125,6 +125,7 @@ void     uuidv7_close (uuidv7_ctx_t *ctx);
  */
 uuidv7_t uuidv7_get   (uuidv7_ctx_t *ctx);
 
+void     uuidv7_str   (char *dest, uuidv7_t id); 
 #endif /* UUIDV7_H__ 1 */
 /** @} */
 
@@ -162,9 +163,10 @@ uuidv7_t uuidv7_get   (uuidv7_ctx_t *ctx);
 #include <stdint.h>
 #include <stdatomic.h>
 #include <sys/random.h>
+#include <endian.h>
 
 /**
- * Node id up to 30 bits, use the 30 first of rand_b
+ * Node id up to 16 bits, use the 16 first of rand_b
  */
 #define UUIDV7_NODE_BS         16
 
@@ -192,6 +194,8 @@ uuidv7_t uuidv7_get   (uuidv7_ctx_t *ctx);
     #define UUIDV7_LOCK_SLEEP      5000
 #endif /* UUIDV7_LOCK_SLEEP */
 
+#define UUIDV7_RAND_B          62
+
 #define UUIDV7_SEM_NAME        "/" UUIDV7_S_NAME "_sem"
 #define UUIDV7_SHM_NAME        "/" UUIDV7_S_NAME "_shm"
 #define UUIDV7_TIMESTAMP_BS    48 /* unix_ts_ms, RFC 9562 */
@@ -199,7 +203,7 @@ uuidv7_t uuidv7_get   (uuidv7_ctx_t *ctx);
 #define UUIDV7_VERSION          7 /* UUIDv7 */
 #define UUIDV7_VARIANT_BS       2 /* var field width */
 #define UUIDV7_VARIANT          2 /* RFC 4122 variant 10x */
-#define UUIDV7_RANDOM_BS       32 /* rand_b leftover after node */
+#define UUIDV7_RANDOM_BS       (UUIDV7_RAND_B - UUIDV7_NODE_BS)  /* rand_b leftover after node */
 #define UUIDV7_NS_BS           (UUIDV7_SEQ_BS + UUIDV7_NODE_BS)
 
 #define ONE_MS_USLEEP      1000
@@ -410,7 +414,7 @@ restart:
     id.uuid_high |=  (sequence   & UUIDV7_SEQ_MASK);
 
     id.uuid_low  =   (UUIDV7_VARIANT & UUIDV7_VARIANT_MASK);
-    id.uuid_low  <<= UUIDV7_SEQ_BS;
+    id.uuid_low  <<= UUIDV7_NODE_BS;
     id.uuid_low  |=  (ctx->node  & UUIDV7_NODE_MASK);
     id.uuid_low  <<= UUIDV7_RANDOM_BS;
     id.uuid_low  |=  (atomic_fetch_add(&ctx->random, 1) & UUIDV7_RANDOM_MASK);
@@ -418,6 +422,32 @@ restart:
     return id;
 fail:
     return UUIDV7_INVALID;
+}
+
+
+
+/* up to caller to allocate dest with enough space */
+/* 123e4567-e89b-12d3-a456-426614174000 */
+static const int uuid_struct[] = {4, 2, 2, 2, 6, 0};
+void uuidv7_str(char *dest, uuidv7_t id) {
+    uint8_t _id[2 * sizeof(uint64_t)];
+    uint64_t h =  htobe64(id.uuid_high); 
+    memcpy(_id, &h, sizeof(uint64_t));
+    h = htobe64(id.uuid_low);
+    memcpy(&_id[sizeof(uint64_t)], &h, sizeof(uint64_t));
+    uint8_t *p = (uint8_t *)&_id;
+    int uuid_pos = 0;
+    int id_pos = 0;
+
+    for (int i = 0; uuid_struct[i] != 0; i++) {
+        for (int j = 0; j < uuid_struct[i]; j++) {
+            dest[uuid_pos++] = "0123456789abcdef"[(p[id_pos] >> 4) & 0xf];
+            dest[uuid_pos++] = "0123456789abcdef"[p[id_pos] & 0xf];
+            id_pos++;
+        }
+        dest[uuid_pos++] = '-';
+    }
+    dest[36] = '\0';
 }
 
 #endif /* UUIDV7_IMPLEMENTATION */
