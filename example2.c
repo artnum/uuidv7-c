@@ -24,7 +24,8 @@ new_fork:
         uuidv7_ctx_t ctx;
         char filename[255];
         FILE *fp = NULL;
-        char struuid[37] = {0};
+        char struuid[50] = "##################################################";
+        struuid[49] = '\0';
 
         snprintf(filename, 255, "./process.%d.txt", getpid());
         fp = fopen(filename, "w");

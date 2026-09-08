@@ -45,6 +45,7 @@
 #include <stdint.h>
 #include <stdatomic.h>
 
+#define UUIDV7_STRING_LENGTH           36
 #define UUIDV7_FAIL_WAIT                5 /* 5 ms */
 #define UUIDV7_WALL_CLOCK_RESYNC_MS    10 /* 10 ms */
 
@@ -125,6 +126,19 @@ void     uuidv7_close (uuidv7_ctx_t *ctx);
  */
 uuidv7_t uuidv7_get   (uuidv7_ctx_t *ctx);
 
+
+/**
+ * Convert uuid to classic string representation
+ *
+ * The destination must be allocated beforehand. The function write only the
+ * 36 characters of the UUID, it does not add \0 at the end.
+ * A typical UUIDv7 will look like 01a08120-592f-7242-8002-8fd1273ff1bf.
+ *
+ * @param dest [out] At least 36 bytes allocated buffer.
+ * @param id   [in]  The UUID to convert into string.
+ *
+ * @return Nothing.
+ */
 void     uuidv7_str   (char *dest, uuidv7_t id); 
 #endif /* UUIDV7_H__ 1 */
 /** @} */
@@ -424,30 +438,26 @@ fail:
     return UUIDV7_INVALID;
 }
 
-
-
 /* up to caller to allocate dest with enough space */
 /* 123e4567-e89b-12d3-a456-426614174000 */
+static const char hex_string[] = "0123456789abcdef";
 static const int uuid_struct[] = {4, 2, 2, 2, 6, 0};
 void uuidv7_str(char *dest, uuidv7_t id) {
-    uint8_t _id[2 * sizeof(uint64_t)];
-    uint64_t h =  htobe64(id.uuid_high); 
-    memcpy(_id, &h, sizeof(uint64_t));
-    h = htobe64(id.uuid_low);
-    memcpy(&_id[sizeof(uint64_t)], &h, sizeof(uint64_t));
+    uint64_t _id[2] = { htobe64(id.uuid_high), htobe64(id.uuid_low)};
     uint8_t *p = (uint8_t *)&_id;
     int uuid_pos = 0;
     int id_pos = 0;
 
     for (int i = 0; uuid_struct[i] != 0; i++) {
         for (int j = 0; j < uuid_struct[i]; j++) {
-            dest[uuid_pos++] = "0123456789abcdef"[(p[id_pos] >> 4) & 0xf];
-            dest[uuid_pos++] = "0123456789abcdef"[p[id_pos] & 0xf];
+            dest[uuid_pos++] = hex_string[(p[id_pos] >> 4) & 0xf];
+            dest[uuid_pos++] = hex_string[ p[id_pos]       & 0xf];
             id_pos++;
         }
-        dest[uuid_pos++] = '-';
+        if (uuid_struct[i + 1] != 0) {
+            dest[uuid_pos++] = '-';
+        }
     }
-    dest[36] = '\0';
 }
 
 #endif /* UUIDV7_IMPLEMENTATION */
