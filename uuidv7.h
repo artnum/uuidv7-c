@@ -364,19 +364,7 @@ uuidv7_t uuidv7_get(uuidv7_ctx_t *ctx) {
     uint16_t infinite_loop_guard = 0;
 
 restart:
-    /* may multiple thread run into the situation at about the same time ?
-     * Maybe. But the random value will be randomized several time ... it's
-     * a waste of cpu ? yes, but a very small one.
-     * I think this is correct
-     */
     uint64_t rand = atomic_fetch_add(&ctx->random, 1);
-    if (rand + 1 > UUIDV7_RANDOM_MASK) {
-        if (getrandom(&rand, sizeof(uint64_t), 0) != sizeof(uint64_t)) {
-            return UUIDV7_INVALID;
-        }
-        atomic_store_explicit(&ctx->random, rand + 1, memory_order_release);
-    }
-
     if (clock_gettime(CLOCK_MONOTONIC, &mono) != 0) { goto fail; }
     uint64_t ts = (uint64_t)mono.tv_sec * 1000 +
                   (uint64_t)mono.tv_nsec / 1000000;
