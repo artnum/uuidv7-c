@@ -324,9 +324,9 @@ bool uuidv7_open(uuidv7_ctx_t *ctx, uint16_t node_id) {
     
     uint64_t random_init = 0;
     if (getrandom(&random_init, sizeof(uint64_t), 0) != sizeof(uint64_t)) {
-        return false;
+        goto fail;
     }
-    atomic_store(&ctx->random, random_init);
+    atomic_store(&ctx->random, random_init & UUIDV7_RANDOM_MASK);
 
     return true;
 
