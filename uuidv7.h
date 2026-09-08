@@ -63,11 +63,18 @@ struct uuidv7_seq {
 };
 
 typedef struct {
-    /* this should be some kind of atomic but it's more tricky than it looks */
+    /* Realtime origin + monotonic sample taken together.
+     * ID time is wall_clock + (CLOCK_MONOTONIC - init_clock), so NTP
+     * step-back does not rewind timestamps or stall the sequence in one
+     * millisecond. If realtime is ahead (suspend, large NTP step-forward)
+     * we resync. Pair is not a single atomic; torn reads are possible
+     * across threads and are reconciled against seq->timestamp under the
+     * semaphore.
+     */
     _Atomic(uint64_t) wall_clock;
     _Atomic(uint64_t) init_clock;
 
-    /* read-only, don't care */
+    /* read-only after uuidv7_open */
     uint16_t node;
 
     /* last 48 bits are random, on startup the PROCESS get a random number and
@@ -87,6 +94,10 @@ typedef struct {
 /**
  * Open a context to generate uuidv7 id.
  *
+ * Not thread-safe, not process-safe. Do not fork a live ctx.
+ * Crashed processes can leave the named semaphore and shm behind;
+ * unlink them at startup if needed.
+ *
  * @param ctx     [in] An allocated ctx-
  * @param node_id [in] The current node id.
  *
@@ -96,11 +107,17 @@ bool     uuidv7_open  (uuidv7_ctx_t *ctx, uint16_t node_id);
 /**
  * Close a context.
  *
+ * Not thread-safe, not process-safe. Do not call concurrently with
+ * uuidv7_get on the same ctx.
+ *
  * @param ctx [in] The ctx to close.
  */
 void     uuidv7_close (uuidv7_ctx_t *ctx);
 /**
  * Get one id
+ *
+ * Thread-safe and process-safe on a ctx that is already open.
+ * uuidv7_open / uuidv7_close are not.
  *
  * @param ctx [in]  The uuidv7 ctx opened with \see uuidv7_open
  * 

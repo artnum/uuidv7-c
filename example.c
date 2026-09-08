@@ -10,14 +10,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 #define MAX_PROCESS 50
 #define MAX_ID 10000
 
 int main(void) {
     int process = 0;
+    pid_t pids[MAX_PROCESS];
 new_fork:    
-    if (fork() == 0) {
+    pid_t pid = fork();
+    if (pid == 0) {
         uuidv7_ctx_t ctx;
         char filename[255];
         FILE *fp = NULL;
@@ -46,12 +49,19 @@ new_fork:
 
         uuidv7_close(&ctx);
         return EXIT_SUCCESS;
-    } else {
+    } else if (pid > 0) {
+        pids[process] = pid;
         process++;
         if (process < MAX_PROCESS) {
             goto new_fork;
         }
+        for (int i = 0; i < process; i++) {
+            waitpid(pids[i], NULL, 0);
+        }
         printf("Should generate %d ID\n", MAX_PROCESS * MAX_ID);
+    } else {
+        perror("fork");
+        return EXIT_FAILURE;
     }
     return EXIT_SUCCESS;
 }
