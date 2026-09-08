@@ -184,7 +184,7 @@ uuidv7_t uuidv7_get   (uuidv7_ctx_t *ctx);
 
 #define SF_TIMESTAMP_MASK  (((uint64_t)1 << SF_TIMESTAMP_BS) - 1)
 #define SF_NODE_MASK       (((uint64_t)1 << SF_NODE_BS)      - 1)
-#define SF_SEQ_MASK        (((uint64_t)1 << SF_SEQ_BS)       - 1)
+#define UUIDV7_SEQ_MASK        (((uint64_t)1 << SF_SEQ_BS)       - 1)
 
 static inline bool lock(sem_t *s) {
     uint16_t loop = 0;
@@ -280,8 +280,8 @@ bool uuidv7_open(uuidv7_ctx_t *ctx, uint16_t node_id) {
                                    (uint64_t)tv.tv_usec / 1000);
     atomic_store(&ctx->init_clock, (uint64_t)mono.tv_sec * 1000 +
                                    (uint64_t)mono.tv_nsec / 1000000);
-    uuidv7_t random_init;
-    getrandom(&random_init, sizeof(uuidv7_t), 0);
+    uint64_t random_init;
+    getrandom(&random_init, sizeof(uint64_t), 0);
     atomic_store(&ctx->random, random_init);
     return true;
 
@@ -349,7 +349,7 @@ restart:
     }
 
     /* check before modifying */
-    if (ctx->seq->sequence + 1U > SF_SEQ_MASK && ctx->seq->timestamp >= wall) {
+    if (ctx->seq->sequence + 1U > UUIDV7_SEQ_MASK && ctx->seq->timestamp >= wall) {
         unlock(ctx->sem);
         /* wait to the next [ms] */
         usleep(ONE_MS_USLEEP);
@@ -376,20 +376,21 @@ restart:
         sequence = ++ctx->seq->sequence;
     }
     unlock(ctx->sem);
-    
-    uint64_t high  = (wall & SF_TIMESTAMP_MASK);
-    high <<= 4;
-    high |= 7;
-    high <<= SF_SEQ_BS;
-    high |= (sequence   & SF_SEQ_MASK);
+   
+    uuidv7_t id = {0, 0};
+    id.uuid_high  =  (wall & SF_TIMESTAMP_MASK);
+    id.uuid_high <<= 4;
+    id.uuid_high |=  7;
+    id.uuid_high <<= SF_SEQ_BS;
+    id.uuid_high |=  (sequence   & UUIDV7_SEQ_MASK);
 
-    uint64_t low = 2;
-    low <<= SF_SEQ_BS;
-    low |= (ctx->node  & SF_NODE_MASK);
-    low <<= 32; /* random */
-    low |= atomic_fetch_add(&ctx->random, 1);
+    id.uuid_low  =   2;
+    id.uuid_low  <<= SF_SEQ_BS;
+    id.uuid_low  |=  (ctx->node  & SF_NODE_MASK);
+    id.uuid_low  <<= 32; /* random */
+    id.uuid_low  |=  atomic_fetch_add(&ctx->random, 1);
 
-    return (uuidv7_t){.uuid_high = high, .uuid_low = low};
+    return id;
 fail:
     return UUIDV7_INVALID;
 }
