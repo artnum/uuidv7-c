@@ -1,7 +1,7 @@
 /**
  * @addtogroup Definition
  * @{
- * @file uuidv8.h
+ * @file uuidv7.h
  * @brief UUIDv7 ID with IPC accross processes.
  * 
  * UUIDv7 ID with IPC accross processes.
@@ -25,28 +25,28 @@
  * the sequence become the time of the process.
  *
  * Some value are configurable at compile time by defining following value :
- * - SF_NODE_BS    : Set the bit size for node id, default to 10.
- * - SF_SEQ_BS     : Set the bit size for sequence, default to 12.
- * - SF_S_NAME     : Name to use to create the name shm and semaphore, al
+ * - UUIDV7_NODE_BS    : Set the bit size for node id, default to 16.
+ * - UUIDV7_SEQ_BS     : Set the bit size for sequence, default to 12.
+ * - UUIDV7_S_NAME     : Name to use to create the name shm and semaphore, al
  *                   processes using the same name will share time and
- *                   sequence, default to "snowflake".
- * - SF_LOCK_SLEEP : Locking is done by sem_trywait, sleep of 1 [us] and try
+ *                   sequence, default to "uuidv7".
+ * - UUIDV7_LOCK_SLEEP : Locking is done by sem_trywait, sleep of 1 [us] and try
  *                   again until this number of try have been done. Default
  *                   to 5000, so it wait 5 [ms] before failing.
  *
  * @author Etienne Bagnoud <etienne@artnum.ch>
  * @copyright Public domain
  */
-#ifndef SNOWFLAKE_H__
-#define SNOWFLAKE_H__ 1
+#ifndef UUIDV7_H__
+#define UUIDV7_H__ 1
 
 #include <semaphore.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdatomic.h>
 
-#define SNOWFLAKE_FAIL_WAIT                5 /* 5 ms */
-#define SNOWFLAKE_WALL_CLOCK_RESYNC_MS    10 /* 10 ms */
+#define UUIDV7_FAIL_WAIT                5 /* 5 ms */
+#define UUIDV7_WALL_CLOCK_RESYNC_MS    10 /* 10 ms */
 
 #define UUIDV7_INVALID (uuidv7_t){0,0}
 #define uuidv7_is_valid(id) ((id).uuid_high != 0 && (id).uuid_low != 0)
@@ -56,7 +56,7 @@ typedef struct {
     uint64_t uuid_low;
 } uuidv7_t;
 
-struct sf_seq {
+struct uuidv7_seq {
     uint64_t timestamp;
     _Atomic(int32_t) refcount;
     uint16_t sequence;
@@ -81,11 +81,11 @@ typedef struct {
     /* ok semaphore work between processes or threads */
     int shm;
     sem_t *sem;
-    struct sf_seq *seq;
+    struct uuidv7_seq *seq;
 } uuidv7_ctx_t;
 
 /**
- * Open a context to generate snowflake id.
+ * Open a context to generate uuidv7 id.
  *
  * @param ctx     [in] An allocated ctx-
  * @param node_id [in] The current node id.
@@ -102,25 +102,25 @@ void     uuidv7_close (uuidv7_ctx_t *ctx);
 /**
  * Get one id
  *
- * @param ctx [in]  The snowflake ctx opened with \see snowflake_open
+ * @param ctx [in]  The uuidv7 ctx opened with \see uuidv7_open
  * 
- * @return SNWOFLAKE_INVALID in case of a failure, an id otherwise.
+ * @return UUIDV7_INVALID in case of a failure, an id otherwise.
  */
 uuidv7_t uuidv7_get   (uuidv7_ctx_t *ctx);
 
-#endif /* SNOWFLAKE_H__ 1 */
+#endif /* UUIDV7_H__ 1 */
 /** @} */
 
 /**
  * @addtogroup Implementation
  * @{
- * @brief Use SNOWFLAKE_IMPLEMENTATION to build
+ * @brief Use UUIDV7_IMPLEMENTATION to build
  *
- * In on file source file that include snowflake, define
- * SNOWFLAKE_IMPLEMENTATION before including it in order to have the code
+ * In one source file that includes uuidv7.h, define
+ * UUIDV7_IMPLEMENTATION before including it in order to have the code
  * compiled into your project.
  */
-#ifdef SNOWFLAKE_IMPLEMENTATION
+#ifdef UUIDV7_IMPLEMENTATION
 
 #ifndef _POSIX_C_SOURCE
     #define _POSIX_C_SOURCE 200112L
@@ -149,13 +149,13 @@ uuidv7_t uuidv7_get   (uuidv7_ctx_t *ctx);
 /**
  * Node id up to 30 bits, use the 30 first of rand_b
  */
-#define SF_NODE_BS         16
+#define UUIDV7_NODE_BS         16
 
 /**
  * Sequence counter goes into rand_a, 12bits, as per RFC9562§6.2
  * (https://datatracker.ietf.org/doc/html/rfc9562#monotonicity_counters)
  */
-#define SF_SEQ_BS          12
+#define UUIDV7_SEQ_BS          12
 
 /**
  * Semaphore and shared memory must have a name. That would be project name.
@@ -163,28 +163,28 @@ uuidv7_t uuidv7_get   (uuidv7_ctx_t *ctx);
  * expanded with prefix "/" and postfix "_sem" and "_shm" for semaphore and
  * shared memory.
  */
-#ifndef SF_S_NAME
-    #define SF_S_NAME "snowflake" 
-#endif /* SF_S_NAME */
+#ifndef UUIDV7_S_NAME
+    #define UUIDV7_S_NAME "uuidv7" 
+#endif /* UUIDV7_S_NAME */
 
 /**
  * When locking the semaphore, it sleep for 1 us and try again. This value
  * fix the loop size. Default is 5ms (5000 * 1us) before giving up
  */
-#ifndef SF_LOCK_SLEEP
-    #define SF_LOCK_SLEEP      5000
-#endif /* SF_LOCK_SLEEP */
+#ifndef UUIDV7_LOCK_SLEEP
+    #define UUIDV7_LOCK_SLEEP      5000
+#endif /* UUIDV7_LOCK_SLEEP */
 
-#define SF_SEM_NAME        "/" SF_S_NAME "_sem"
-#define SF_SHM_NAME        "/" SF_S_NAME "_shm"
-#define SF_TIMESTAMP_BS    48
-#define SF_NS_BS           (SF_SEQ_BS + SF_NODE_BS)
+#define UUIDV7_SEM_NAME        "/" UUIDV7_S_NAME "_sem"
+#define UUIDV7_SHM_NAME        "/" UUIDV7_S_NAME "_shm"
+#define UUIDV7_TIMESTAMP_BS    48
+#define UUIDV7_NS_BS           (UUIDV7_SEQ_BS + UUIDV7_NODE_BS)
 
 #define ONE_MS_USLEEP      1000
 
-#define SF_TIMESTAMP_MASK  (((uint64_t)1 << SF_TIMESTAMP_BS) - 1)
-#define SF_NODE_MASK       (((uint64_t)1 << SF_NODE_BS)      - 1)
-#define UUIDV7_SEQ_MASK        (((uint64_t)1 << SF_SEQ_BS)       - 1)
+#define UUIDV7_TIMESTAMP_MASK  (((uint64_t)1 << UUIDV7_TIMESTAMP_BS) - 1)
+#define UUIDV7_NODE_MASK       (((uint64_t)1 << UUIDV7_NODE_BS)      - 1)
+#define UUIDV7_SEQ_MASK        (((uint64_t)1 << UUIDV7_SEQ_BS)       - 1)
 
 static inline bool lock(sem_t *s) {
     uint16_t loop = 0;
@@ -192,7 +192,7 @@ restart:
     if (sem_trywait(s) == -1) {
         if (errno == EAGAIN) {
             usleep(1);
-            if (++loop < SF_LOCK_SLEEP) {
+            if (++loop < UUIDV7_LOCK_SLEEP) {
                 goto restart;
             }
         }
@@ -213,10 +213,10 @@ bool uuidv7_open(uuidv7_ctx_t *ctx, uint16_t node_id) {
     ctx->seq = MAP_FAILED;
     ctx->node = node_id;
 
-    ctx->sem = sem_open(SF_SEM_NAME, O_CREAT | O_EXCL, 0660, 1);
+    ctx->sem = sem_open(UUIDV7_SEM_NAME, O_CREAT | O_EXCL, 0660, 1);
     if (ctx->sem == SEM_FAILED) {
         if (errno == EEXIST) {
-            ctx->sem = sem_open(SF_SEM_NAME, 0);
+            ctx->sem = sem_open(UUIDV7_SEM_NAME, 0);
             if (ctx->sem == SEM_FAILED) {
                 goto fail; 
             }
@@ -230,10 +230,10 @@ bool uuidv7_open(uuidv7_ctx_t *ctx, uint16_t node_id) {
     }
 
     bool created_here = false;
-    ctx->shm = shm_open(SF_SHM_NAME, O_CREAT | O_EXCL | O_RDWR, 0660);
+    ctx->shm = shm_open(UUIDV7_SHM_NAME, O_CREAT | O_EXCL | O_RDWR, 0660);
     if (ctx->shm == -1) {
         if (errno == EEXIST) {
-            ctx->shm = shm_open(SF_SHM_NAME, O_RDWR, 0660);
+            ctx->shm = shm_open(UUIDV7_SHM_NAME, O_RDWR, 0660);
             if (ctx->shm == -1) {
                 unlock(ctx->sem);
                 goto fail;
@@ -243,7 +243,7 @@ bool uuidv7_open(uuidv7_ctx_t *ctx, uint16_t node_id) {
             goto fail;
         }
     } else {
-        if(ftruncate(ctx->shm, sizeof(struct sf_seq)) == -1) {
+        if(ftruncate(ctx->shm, sizeof(struct uuidv7_seq)) == -1) {
             /* can't do anything if one of those fail */
             unlock(ctx->sem);
             goto fail;
@@ -251,7 +251,7 @@ bool uuidv7_open(uuidv7_ctx_t *ctx, uint16_t node_id) {
         created_here = true;
     }
 
-    ctx->seq = (struct sf_seq *)mmap(NULL, sizeof(struct sf_seq),
+    ctx->seq = (struct uuidv7_seq *)mmap(NULL, sizeof(struct uuidv7_seq),
                                      PROT_WRITE | PROT_READ, MAP_SHARED, 
                                      ctx->shm, 0);
     if (ctx->seq == MAP_FAILED) {
@@ -260,7 +260,7 @@ bool uuidv7_open(uuidv7_ctx_t *ctx, uint16_t node_id) {
     }
     
     if (created_here) {
-        memset(ctx->seq, 0, sizeof(struct sf_seq));
+        memset(ctx->seq, 0, sizeof(struct uuidv7_seq));
     }
     atomic_fetch_add(&ctx->seq->refcount, 1);
 
@@ -287,7 +287,7 @@ bool uuidv7_open(uuidv7_ctx_t *ctx, uint16_t node_id) {
 
 fail:
     if (fail_must_sub)          { atomic_fetch_sub(&ctx->seq->refcount, 1);  }
-    if (ctx->seq != MAP_FAILED) { munmap(ctx->seq, sizeof(struct sf_seq));   } 
+    if (ctx->seq != MAP_FAILED) { munmap(ctx->seq, sizeof(struct uuidv7_seq));   } 
     if (ctx->shm != -1)         { close(ctx->shm);                           }
     if (ctx->sem != SEM_FAILED) { sem_close(ctx->sem);                       }
     return false;
@@ -299,13 +299,13 @@ void uuidv7_close(uuidv7_ctx_t *ctx) {
     if (lock(ctx->sem)) {
         int32_t refcount = atomic_fetch_sub(&ctx->seq->refcount, 1);
         if (refcount <= 1) {
-            sem_unlink(SF_SEM_NAME);
-            shm_unlink(SF_SHM_NAME);
+            sem_unlink(UUIDV7_SEM_NAME);
+            shm_unlink(UUIDV7_SHM_NAME);
         }
         unlock(ctx->sem);
     }
 
-    if (ctx->seq != MAP_FAILED) { munmap(ctx->seq, sizeof(struct sf_seq)); } 
+    if (ctx->seq != MAP_FAILED) { munmap(ctx->seq, sizeof(struct uuidv7_seq)); } 
     if (ctx->shm != -1)         { close(ctx->shm);                         }
     if (ctx->sem != SEM_FAILED) { sem_close(ctx->sem);                     }
         
@@ -334,7 +334,7 @@ restart:
                                       (uint64_t)tv.tv_usec / 1000;
         /* we are much late on current wall clock, so we bump time forward */
         if ((int64_t)(current_wall_clock - wall) >
-            SNOWFLAKE_WALL_CLOCK_RESYNC_MS) 
+            UUIDV7_WALL_CLOCK_RESYNC_MS) 
         {
             atomic_store_explicit(&ctx->wall_clock, current_wall_clock,
                                   memory_order_release);
@@ -353,7 +353,7 @@ restart:
         unlock(ctx->sem);
         /* wait to the next [ms] */
         usleep(ONE_MS_USLEEP);
-        if (infinite_loop_guard++ > SNOWFLAKE_FAIL_WAIT) { goto fail; }
+        if (infinite_loop_guard++ > UUIDV7_FAIL_WAIT) { goto fail; }
         goto restart; 
     }
 
@@ -378,15 +378,15 @@ restart:
     unlock(ctx->sem);
    
     uuidv7_t id = {0, 0};
-    id.uuid_high  =  (wall & SF_TIMESTAMP_MASK);
+    id.uuid_high  =  (wall & UUIDV7_TIMESTAMP_MASK);
     id.uuid_high <<= 4;
     id.uuid_high |=  7;
-    id.uuid_high <<= SF_SEQ_BS;
+    id.uuid_high <<= UUIDV7_SEQ_BS;
     id.uuid_high |=  (sequence   & UUIDV7_SEQ_MASK);
 
     id.uuid_low  =   2;
-    id.uuid_low  <<= SF_SEQ_BS;
-    id.uuid_low  |=  (ctx->node  & SF_NODE_MASK);
+    id.uuid_low  <<= UUIDV7_SEQ_BS;
+    id.uuid_low  |=  (ctx->node  & UUIDV7_NODE_MASK);
     id.uuid_low  <<= 32; /* random */
     id.uuid_low  |=  atomic_fetch_add(&ctx->random, 1);
 
@@ -395,5 +395,5 @@ fail:
     return UUIDV7_INVALID;
 }
 
-#endif /* SNOWFLAKE_IMPLEMENTATION */
+#endif /* UUIDV7_IMPLEMENTATION */
 /** @} */

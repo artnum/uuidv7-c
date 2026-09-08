@@ -1,11 +1,11 @@
 /**
- * Example for snowflake
+ * Example for uuidv7
  *
  * Create a bunch of process that generate in loop ID and store into a file
  * for each process.
  * Not perfect testing, but still kind of testing.
  */
-#define SNOWFLAKE_IMPLEMENTATION
+#define UUIDV7_IMPLEMENTATION
 #include "uuidv7.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,7 +30,7 @@ new_fork:
         }
         
         if (!uuidv7_open(&ctx, 10)) {
-            fprintf(stderr, "Cannot open snowflake context\n");
+            fprintf(stderr, "Cannot open uuidv7 context\n");
             return EXIT_FAILURE;
         }
 
