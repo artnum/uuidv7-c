@@ -364,6 +364,7 @@ uuidv7_t uuidv7_get(uuidv7_ctx_t *ctx) {
     uint16_t infinite_loop_guard = 0;
 
 restart:
+    ; /* need on some C version */
     uint64_t rand = atomic_fetch_add(&ctx->random, 1);
     if (clock_gettime(CLOCK_MONOTONIC, &mono) != 0) { goto fail; }
     uint64_t ts = (uint64_t)mono.tv_sec * 1000 +
